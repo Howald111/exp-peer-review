@@ -208,13 +208,13 @@ table.summary td:last-child { text-align: right; font-family: var(--font-mono); 
   <!-- Done -->
   <section class="panel done-box" id="done" hidden>
     <h2>Review complete</h2>
-    <p style="margin:0">Your PDF has downloaded:</p>
+    <p style="margin:0">The PDF has downloaded to this laptop:</p>
     <div class="filename" id="fname"></div>
     <ol>
-      <li><b>Reviewer:</b> upload this PDF to the <b>Week 7 Peer Review</b> Dropbox on SLATE.</li>
-      <li><b>Reviewer:</b> send the PDF to your partner in Teams.</li>
-      <li><b>Your partner:</b> include it in your Assignment 3 submission and use it in your reflection.</li>
-      <li><b>Both of you:</b> once you've read the review written for you, come back and choose <b>Write my reflection</b>.</li>
+      <li><b>Laptop owner:</b> this is the review of your scene. Keep it for your Assignment 3 submission and your reflection.</li>
+      <li><b>Laptop owner:</b> send a copy to your reviewer in Teams chat.</li>
+      <li><b>Reviewer:</b> upload that copy to the <b>Week 7 Peer Review</b> Dropbox on SLATE.</li>
+      <li><b>Both of you:</b> once you've read the review of your scene, open the form on your own laptop and choose <b>Write my reflection</b>.</li>
     </ol>
     <div class="actions"><button class="btn" id="again">Download again</button><button class="btn primary" id="restart">Back to start</button></div>
   </section>
@@ -318,7 +318,7 @@ function unanswered() { return ALL.filter(i => i.type !== "count" && state.answe
 // ---------- Rubric UI ----------
 function buildRubric() {
   const box = $("rubric");
-  box.innerHTML = '<h2>Check the scene</h2><p class="lead">Move over to your partner\'s laptop and keep this form open on yours. Check their scene, and their PureRef board from the sourceimages folder. Look, don\'t change anything in their file. Check every item. Notes are optional but help your partner fix things.</p>';
+  box.innerHTML = '<h2>Check the scene</h2><p class="lead">Use this form on your partner\'s laptop, in a browser window beside their Maya scene. Check their scene, and their PureRef board from the sourceimages folder. Look, don\'t change anything in their file. Check every item. Notes are optional but help your partner fix things.</p>';
   RUBRIC.forEach(sec => {
     const t = document.createElement("div"); t.className = "section-title"; t.textContent = sec.section; box.appendChild(t);
     sec.items.forEach(i => {
