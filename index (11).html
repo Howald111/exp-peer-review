@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EXP Peer Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one centred column, a step bar on top, a sticky score bar while checking the scene. */
+:root {
+  --bg: #f3f4f6;
+  --panel: #ffffff;
+  --fg: #1b1f24;
+  --muted: #5d6673;
+  --line: #d9dde3;
+  --accent: #1f6feb;
+  --accent-soft: #e4eefd;
+  --good: #1a7f37;
+  --good-soft: #e3f4e8;
+  --bad: #c0362c;
+  --bad-soft: #fbe7e5;
+  --chip: #eef0f3;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17191d; --panel: #20242a; --fg: #e8eaee; --muted: #a0a8b4; --line: #343a43;
+    --accent: #5b9dff; --accent-soft: #1d2b40; --good: #4cc26a; --good-soft: #17301f;
+    --bad: #ff7b70; --bad-soft: #3a1d1b; --chip: #2a2f37; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font-body);
+  padding: 24px max(16px, env(safe-area-inset-left, 0px)) 64px max(16px, env(safe-area-inset-right, 0px));
+}
+main { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+header h1 { font-size: 26px; margin: 0; text-wrap: balance; }
+header p { margin: 4px 0 0; color: var(--muted); }
+.course { font: 500 12px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+code, .mono { font-family: var(--font-mono); font-size: .92em; background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+
+.steps { display: flex; gap: 6px; list-style: none; padding: 0; margin: 0; flex-wrap: wrap; }
+.steps li { flex: 1 1 120px; font-size: 13px; color: var(--muted); border-top: 3px solid var(--line); padding-top: 6px; }
+.steps li.on { color: var(--fg); border-color: var(--accent); font-weight: 600; }
+.steps li.done { border-color: var(--accent); }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+.panel h2 { margin: 0; font-size: 19px; }
+.panel > p.lead { margin: -8px 0 0; color: var(--muted); }
+
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.fields .wide { grid-column: 1 / -1; }
+@media (max-width: 520px) { .fields { grid-template-columns: 1fr; } }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+label small { font-weight: 400; color: var(--muted); }
+input, textarea {
+  font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 9px 11px; width: 100%;
+}
+input.initials { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .1em; max-width: 120px; }
+textarea { min-height: 140px; resize: vertical; }
+input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.err { color: var(--bad); font-size: 13px; min-height: 1em; margin: 0; }
+
+.section-title { font: 600 12px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 6px 0 -6px; }
+.item { border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; align-items: start; }
+.item.missing { border-color: var(--bad); }
+.item h3 { margin: 0; font-size: 15px; }
+.item .hint { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.item .note { grid-column: 1 / -1; }
+.item .note input { font-size: 13px; padding: 7px 10px; }
+@media (max-width: 520px) { .item { grid-template-columns: 1fr; } }
+.item.lv { grid-template-columns: 1fr; }
+.item.lv .score { grid-column: 1; text-align: left; }
+.levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+@media (max-width: 520px) { .levels { grid-template-columns: 1fr 1fr; } }
+.levels button { font: 13px/1.3 var(--font-body); text-align: left; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); padding: 8px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.levels button b { font: 600 15px var(--font-mono); }
+.levels button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+
+.yn { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.yn button { font: 600 14px var(--font-body); border: 0; background: var(--panel); color: var(--fg); padding: 8px 16px; cursor: pointer; }
+.yn button + button { border-left: 1px solid var(--line); }
+.yn button[aria-pressed="true"].yes { background: var(--good-soft); color: var(--good); }
+.yn button[aria-pressed="true"].no { background: var(--bad-soft); color: var(--bad); }
+
+.counter { display: flex; align-items: center; gap: 8px; }
+.counter button { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); font-size: 18px; cursor: pointer; }
+.counter .n { font: 500 15px var(--font-mono); min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
+.counter .lbl { font-size: 12px; color: var(--muted); }
+.score { font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); grid-column: 2; text-align: right; }
+@media (max-width: 520px) { .score { grid-column: 1; text-align: left; } }
+
+.scorebar { position: sticky; top: 0; z-index: 5; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.scorebar strong { font: 600 20px var(--font-mono); font-variant-numeric: tabular-nums; }
+.scorebar span { color: var(--muted); font-size: 13px; }
+
+.actions { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.btn { font: 600 15px var(--font-body); border-radius: 6px; padding: 10px 18px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+table.summary { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.summary td { border-bottom: 1px solid var(--line); padding: 7px 4px; vertical-align: top; }
+table.summary td:last-child { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.who { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.who div { background: var(--bg); border-radius: 8px; padding: 10px 12px; font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+.who b { display: block; font-size: 12px; color: var(--muted); font-weight: 600; }
+@media (max-width: 520px) { .who { grid-template-columns: 1fr; } }
+
+.resume { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.resume p { margin: 0; }
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 520px) { .modes { grid-template-columns: 1fr; } }
+.mode { text-align: left; font: 14px/1.45 var(--font-body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 16px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+.mode b { font-size: 16px; }
+.mode span { color: var(--muted); }
+.mode:hover { border-color: var(--accent); }
+.done-box ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.filename { font-family: var(--font-mono); background: var(--chip); padding: 8px 10px; border-radius: 6px; overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: no-preference) { .panel { animation: in .18s ease-out; } @keyframes in { from { opacity: .4; transform: translateY(4px); } } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="course">Intro to Asset Creation · Week 7</div>
+    <h1>EXP Peer Review</h1>
+    <p>Check your partner's Assignment 3 scene and PureRef board, then download the results as a PDF.</p>
+  </header>
+
+  <!-- Start: choose a mode -->
+  <section class="panel" id="start">
+    <h2>What are you doing?</h2>
+    <div class="resume" id="resume" hidden>
+      <p id="resumeText"></p>
+      <div class="actions"><button class="btn" id="discard">Discard it</button><button class="btn primary" id="resumeBtn">Pick up where I left off</button></div>
+    </div>
+    <div class="modes">
+      <button type="button" class="mode" id="goReview"><b>Review a partner's scene</b><span>Check their Maya scene and PureRef board, leave notes, and download the results PDF.</span></button>
+      <button type="button" class="mode" id="goReflect"><b>Write my reflection</b><span>After you've received your partner's review. Downloads your reflection PDF.</span></button>
+    </div>
+  </section>
+
+  <ol class="steps" id="steps" hidden>
+    <li data-s="1">1. Whose file</li>
+    <li data-s="2">2. Reviewer</li>
+    <li data-s="3">3. Check the scene</li>
+    <li data-s="4">4. Comment &amp; download</li>
+  </ol>
+
+  <!-- Step 1 -->
+  <section class="panel" id="step1" hidden>
+    <h2>Whose file is this?</h2>
+    <p class="lead">Enter the details of the student whose scene you're reviewing.</p>
+    <div class="fields">
+      <label>First name<input id="o_first" autocomplete="off"></label>
+      <label>Last name<input id="o_last" autocomplete="off"></label>
+      <label class="wide">Sheridan email<input id="o_email" type="email" autocomplete="off" placeholder="name@sheridancollege.ca"></label>
+      <label>Initials <small>Their three letters, as in EXP_KDH</small><input id="o_init" class="initials" maxlength="3" autocomplete="off"></label>
+    </div>
+    <p class="err" id="err1"></p>
+    <div class="actions"><span></span><button class="btn primary" id="next1">Next</button></div>
+  </section>
+
+  <!-- Step 2 -->
+  <section class="panel" id="step2" hidden>
+    <h2>Who's reviewing?</h2>
+    <p class="lead">Now enter your own details.</p>
+    <div class="fields">
+      <label>First name<input id="r_first" autocomplete="off"></label>
+      <label>Last name<input id="r_last" autocomplete="off"></label>
+      <label class="wide">Sheridan email<input id="r_email" type="email" autocomplete="off" placeholder="name@sheridancollege.ca"></label>
+      <label>Initials <small>Your three letters</small><input id="r_init" class="initials" maxlength="3" autocomplete="off"></label>
+    </div>
+    <p class="err" id="err2"></p>
+    <div class="actions"><button class="btn" id="back2">Back</button><button class="btn primary" id="next2">Start the review</button></div>
+  </section>
+
+  <!-- Step 3 -->
+  <section id="step3" hidden style="display:flex;flex-direction:column;gap:14px">
+    <div class="scorebar"><div><span>Running score</span><br><strong id="liveScore">0</strong></div><span id="liveLeft"></span></div>
+    <div class="panel" id="rubric"></div>
+    <p class="err" id="err3"></p>
+    <div class="actions"><button class="btn" id="back3">Back</button><button class="btn primary" id="next3">Next</button></div>
+  </section>
+
+  <!-- Step 4 -->
+  <section class="panel" id="step4" hidden>
+    <h2>Comment and download</h2>
+    <label>Your notes
+      <small>Name what's working, then the most important fixes in order. Say how to fix each one (menu or hotkey).</small>
+      <textarea id="comment"></textarea>
+    </label>
+    <p class="err" id="err4"></p>
+    <div class="who" id="whoBox"></div>
+    <table class="summary" id="summary"></table>
+    <div class="actions"><button class="btn" id="back4">Back</button><button class="btn primary" id="submit">Submit and download PDF</button></div>
+  </section>
+
+  <!-- Done -->
+  <section class="panel done-box" id="done" hidden>
+    <h2>Review complete</h2>
+    <p style="margin:0">Your PDF has downloaded:</p>
+    <div class="filename" id="fname"></div>
+    <ol>
+      <li><b>Reviewer:</b> upload this PDF to the <b>Week 7 Peer Review</b> Dropbox on SLATE.</li>
+      <li><b>Reviewer:</b> send the PDF to your partner in Teams.</li>
+      <li><b>Your partner:</b> include it in your Assignment 3 submission and use it in your reflection.</li>
+      <li><b>Both of you:</b> once you've read the review written for you, come back and choose <b>Write my reflection</b>.</li>
+    </ol>
+    <div class="actions"><button class="btn" id="again">Download again</button><button class="btn primary" id="restart">Back to start</button></div>
+  </section>
+
+  <!-- Reflection -->
+  <section class="panel" id="refl" hidden>
+    <h2>Your peer review reflection</h2>
+    <p class="lead">Write this after you've read the review PDF your partner sent you. Aim for 150–250 words in total.</p>
+    <div class="fields">
+      <label>First name<input id="f_first" autocomplete="off"></label>
+      <label>Last name<input id="f_last" autocomplete="off"></label>
+      <label class="wide">Sheridan email<input id="f_email" type="email" autocomplete="off" placeholder="name@sheridancollege.ca"></label>
+      <label>Your initials<input id="f_init" class="initials" maxlength="3" autocomplete="off"></label>
+      <label>Reviewer's initials <small>From your review PDF</small><input id="f_rinit" class="initials" maxlength="3" autocomplete="off"></label>
+    </div>
+    <label>1. The notes you received
+      <small>What notes did you receive, and which do you agree with? Were there any that surprised you or that you disagreed with? Explain why.</small>
+      <textarea id="q1" data-q="1"></textarea></label>
+    <label>2. Your action plan
+      <small>What's your action plan? List the fixes you'll make before you submit Assignment 3, most important first, and how you'll make each one.</small>
+      <textarea id="q2" data-q="2"></textarea></label>
+    <label>3. Reviewing your partner's scene
+      <small>What did you learn from reviewing your partner's scene, and what would you do differently in your next peer review?</small>
+      <textarea id="q3" data-q="3"></textarea></label>
+    <div class="scorebar" style="position:static"><span>Word count</span><strong id="wc">0</strong></div>
+    <p class="err" id="errF"></p>
+    <div class="actions"><button class="btn" id="backF">Back</button><button class="btn primary" id="submitF">Download reflection PDF</button></div>
+  </section>
+
+  <section class="panel done-box" id="reflDone" hidden>
+    <h2>Reflection downloaded</h2>
+    <div class="filename" id="fnameF"></div>
+    <ol>
+      <li>Upload it to the <b>Week 7 Peer Review</b> Dropbox on SLATE, along with the review PDF you wrote for your partner.</li>
+    </ol>
+    <div class="actions"><button class="btn" id="againF">Download again</button><button class="btn primary" id="restartF">Back to start</button></div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+// ---------- Rubric (edit here) ----------
+// type "yn": Yes = full points, No = 0. type "count": starts at 10, minus 1 per error, minimum 0.
+const YN_PTS = 5, COUNT_MAX = 10;
+const RUBRIC = [
+  { section: "Files", items: [
+    { id: "project", type: "yn", title: "Maya project folder named correctly", hint: "<code>EXP_Initials</code>, with <code>workspace.mel</code>, <code>scenes</code> and <code>sourceimages</code> inside. The PureRef board and all image plane images are in <code>sourceimages</code>." },
+    { id: "scene", type: "yn", title: "Scene file named correctly", hint: "<code>EXP_Initials.###.ma</code> in the scenes folder, saved as Maya ASCII. Any version number is fine for the review." },
+    { id: "pureref", type: "yn", title: "PureRef board complete", hint: "<code>EXP_PRF_Initials.pur</code> in <code>sourceimages</code>: multiple angles, front/side/top views, labels, width/height/depth, a source link beside every external image" },
+  ]},
+  { section: "Reference setup", items: [
+    { id: "measure", type: "yn", title: "Measurements labelled and in place", hint: "Distance dimensions (<code>_Ddm</code>) and locators (<code>_Loc</code>) named, matching the object's real width, height and depth" },
+    { id: "planes", type: "yn", title: "Image planes labelled and in place", hint: "Front, Side and Top named, scaled to the measurements, lined up with the blockout in every view. Image Name paths (Attribute Editor) point to <code>sourceimages</code>" },
+  ]},
+  { section: "Blockout quality", items: [
+    { id: "count", type: "yn", title: "5–10 main components, each a separate object", hint: "Count the objects in the Outliner. Fewer than 5 or more than 10 is a No." },
+    { id: "lowres", type: "yn", title: "Simple, low-resolution shapes", hint: "Cubes, cylinders and planes with low divisions. No fine detail yet." },
+    { id: "proportions", type: "level", title: "Proportions and scale match the reference", hint: "Tumble the scene and check the Front, Side and Top views against the image planes.",
+      levels: [[10, "Matches in every view"], [7, "Small offsets in one view"], [4, "Clearly off in several places"], [0, "Doesn't follow the reference"]] },
+    { id: "placement", type: "level", title: "Components sit where they belong", hint: "Parts line up and fit together the way the real object is assembled (gaps, overlaps, centring).",
+      levels: [[10, "All parts placed correctly"], [7, "One or two parts slightly off"], [4, "Several parts misplaced"], [0, "Parts don't relate to each other"]] },
+  ]},
+  { section: "Naming and cleanup", items: [
+    { id: "geo", type: "count", title: "Geometry labelled", hint: "Count objects not named <code>Descriptor_Geo</code> (CamelCase, unique, no spaces)", unit: "incorrect" },
+    { id: "frozen", type: "count", title: "Transformations frozen", hint: "Count objects whose Translate and Rotate aren't 0 or Scale isn't 1", unit: "not frozen" },
+    { id: "history", type: "count", title: "History deleted", hint: "Count meshes that still show INPUTS in the Channel Box", unit: "with history" },
+    { id: "materials", type: "count", title: "Materials labelled", hint: "Count materials not named <code>Descriptor_Mtl</code>", unit: "unlabelled" },
+  ]},
+  { section: "Organization", items: [
+    { id: "colour", type: "yn", title: "Components colour-coded", hint: "Each of the 5–10 components has its own colour" },
+    { id: "groups", type: "yn", title: "Groups labelled and hierarchy clean", hint: "Groups named <code>_Grp</code>; image planes and measurements kept in their own group or display layer" },
+    { id: "facing", type: "yn", title: "Object faces +Z", hint: "The front of the object points toward the Front camera" },
+  ]},
+];
+const ALL = RUBRIC.flatMap(s => s.items);
+const MAX = ALL.reduce((t, i) => t + maxOf(i), 0);
+
+// ---------- State ----------
+const state = { step: 1, answers: {}, notes: {} };
+ALL.forEach(i => { state.answers[i.id] = i.type === "count" ? 0 : null; state.notes[i.id] = ""; });
+const $ = id => document.getElementById(id);
+const strip = s => s.replace(/<[^>]+>/g, "");
+
+function pts(i) {
+  const a = state.answers[i.id];
+  if (i.type === "yn") return a === true ? YN_PTS : 0;
+  if (i.type === "level") return a === null ? 0 : i.levels[a][0];
+  return Math.max(0, COUNT_MAX - a);
+}
+function maxOf(i) { return i.type === "yn" ? YN_PTS : i.type === "level" ? i.levels[0][0] : COUNT_MAX; }
+function resultText(i) {
+  const a = state.answers[i.id];
+  if (i.type === "yn") return a ? "Yes" : "No";
+  if (i.type === "level") return i.levels[a][1];
+  return `${a} ${i.unit}`;
+}
+function isGood(i) { return pts(i) === maxOf(i); }
+function total() { return ALL.reduce((t, i) => t + pts(i), 0); }
+function unanswered() { return ALL.filter(i => i.type !== "count" && state.answers[i.id] === null); }
+
+// ---------- Rubric UI ----------
+function buildRubric() {
+  const box = $("rubric");
+  box.innerHTML = '<h2>Check the scene</h2><p class="lead">Move over to your partner\'s laptop and keep this form open on yours. Check their scene, and their PureRef board from the sourceimages folder. Look, don\'t change anything in their file. Check every item. Notes are optional but help your partner fix things.</p>';
+  RUBRIC.forEach(sec => {
+    const t = document.createElement("div"); t.className = "section-title"; t.textContent = sec.section; box.appendChild(t);
+    sec.items.forEach(i => {
+      const el = document.createElement("div"); el.className = "item" + (i.type === "level" ? " lv" : ""); el.id = "item_" + i.id;
+      let control;
+      if (i.type === "yn") {
+        control = `<div class="yn" role="group" aria-label="${strip(i.title)}">
+          <button type="button" class="yes" data-v="yes" aria-pressed="false">Yes</button>
+          <button type="button" class="no" data-v="no" aria-pressed="false">No</button></div>`;
+      } else if (i.type === "level") {
+        control = `<div class="levels" role="group" aria-label="${strip(i.title)}">` + i.levels.map((l, k) =>
+          `<button type="button" data-k="${k}" aria-pressed="false"><b>${l[0]}</b><span>${l[1]}</span></button>`).join("") + `</div>`;
+      } else {
+        control = `<div class="counter"><button type="button" data-d="-1" aria-label="One fewer">−</button>
+          <span class="n" id="n_${i.id}">0</span><button type="button" data-d="1" aria-label="One more">+</button>
+          <span class="lbl">${i.unit}</span></div>`;
+      }
+      el.innerHTML = `<div><h3>${i.title}</h3><p class="hint">${i.hint}</p></div><div>${control}</div>
+        <div class="score" id="s_${i.id}"></div>
+        <label class="note"><input id="note_${i.id}" placeholder="Note for your partner (optional): which objects, what to fix"></label>`;
+      box.appendChild(el);
+      if (i.type === "yn") {
+        el.querySelectorAll(".yn button").forEach(b => b.addEventListener("click", () => {
+          state.answers[i.id] = b.dataset.v === "yes";
+          el.querySelectorAll(".yn button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+          el.classList.remove("missing"); refreshScores();
+        }));
+      } else if (i.type === "level") {
+        el.querySelectorAll(".levels button").forEach(b => b.addEventListener("click", () => {
+          state.answers[i.id] = Number(b.dataset.k);
+          el.querySelectorAll(".levels button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+          el.classList.remove("missing"); refreshScores();
+        }));
+      } else {
+        el.querySelectorAll(".counter button").forEach(b => b.addEventListener("click", () => {
+          state.answers[i.id] = Math.max(0, Math.min(99, state.answers[i.id] + Number(b.dataset.d)));
+          $("n_" + i.id).textContent = state.answers[i.id]; refreshScores();
+        }));
+      }
+      el.querySelector("#note_" + i.id).addEventListener("input", e => { state.notes[i.id] = e.target.value; });
+    });
+  });
+  refreshScores();
+}
+function refreshScores() {
+  ALL.forEach(i => {
+    const a = state.answers[i.id];
+    $("s_" + i.id).textContent = (i.type !== "count" && a === null) ? `– / ${maxOf(i)}` : `${pts(i)} / ${maxOf(i)}`;
+  });
+  $("liveScore").textContent = `${total()} / ${MAX}`;
+  const left = unanswered().length;
+  $("liveLeft").textContent = left ? `${left} item${left > 1 ? "s" : ""} left to check` : "All items checked";
+}
+
+// ---------- Steps ----------
+function show(n) {
+  state.step = n;
+  ["start", "step1", "step2", "step3", "step4", "done", "refl", "reflDone"].forEach((id, k) => { $(id).hidden = k !== n; });
+  $("steps").hidden = !(n >= 1 && n <= 5);
+  document.querySelectorAll("#steps li").forEach(li => {
+    const s = Number(li.dataset.s);
+    li.className = s === n ? "on" : (s < n ? "done" : "");
+  });
+  window.scrollTo({ top: 0 });
+}
+function person(p) {
+  return {
+    first: $(p + "_first").value.trim(), last: $(p + "_last").value.trim(),
+    email: $(p + "_email").value.trim().toLowerCase(), init: $(p + "_init").value.trim().toUpperCase(),
+  };
+}
+function checkPerson(p) {
+  const x = person(p);
+  if (!x.first || !x.last) return "Enter a first and last name.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x.email)) return "Enter a valid email address.";
+  if (!/^[A-Z]{3}$/.test(x.init)) return "Initials must be exactly three letters.";
+  return "";
+}
+$("next1").onclick = () => { const e = checkPerson("o"); $("err1").textContent = e; if (!e) show(2); };
+$("back2").onclick = () => show(1);
+$("next2").onclick = () => {
+  let e = checkPerson("r");
+  if (!e && person("r").email === person("o").email) e = "The reviewer can't be the same person as the file owner.";
+  $("err2").textContent = e; if (!e) show(3);
+};
+$("back3").onclick = () => show(2);
+$("next3").onclick = () => {
+  const miss = unanswered();
+  ALL.forEach(i => $("item_" + i.id).classList.toggle("missing", miss.includes(i)));
+  if (miss.length) { $("err3").textContent = `Check every item before continuing (${miss.length} left, outlined in red).`; $("item_" + miss[0].id).scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+  $("err3").textContent = ""; buildSummary(); show(4);
+};
+$("back4").onclick = () => show(3);
+
+function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+function buildSummary() {
+  const o = person("o"), r = person("r");
+  $("whoBox").innerHTML = `<div><b>File owner</b>${esc(o.first)} ${esc(o.last)} (${o.init})<br>${esc(o.email)}</div>
+    <div><b>Reviewer</b>${esc(r.first)} ${esc(r.last)} (${r.init})<br>${esc(r.email)}</div>`;
+  $("summary").innerHTML = ALL.map(i => {
+    const res = resultText(i);
+    return `<tr><td>${strip(i.title)} <span style="color:var(--muted)">· ${res}</span></td><td>${pts(i)} / ${maxOf(i)}</td></tr>`;
+  }).join("") + `<tr><td><b>Total</b></td><td><b>${total()} / ${MAX}</b></td></tr>`;
+}
+
+// ---------- PDF ----------
+let lastPdf = null, lastName = "";
+function makePdf() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const o = person("o"), r = person("r");
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 50;
+  let y = M;
+  const ensure = h => { if (y + h > H - M) { doc.addPage(); y = M; } };
+  const text = (s, x, size, style, color) => { doc.setFont("helvetica", style || "normal"); doc.setFontSize(size); doc.setTextColor(...(color || [27, 31, 36])); doc.text(s, x, y); };
+
+  const now = new Date();
+  const stamp = now.toLocaleString("en-CA", { dateStyle: "long", timeStyle: "short" });
+  text("Intro to Asset Creation (SYST14723)", M, 10, "normal", [93, 102, 115]); y += 18;
+  text("Assignment 3 – Week 7 Peer Review", M, 18, "bold"); y += 18;
+  text(stamp, M, 10, "normal", [93, 102, 115]); y += 24;
+
+  doc.setDrawColor(217, 221, 227);
+  const colW = (W - 2 * M - 16) / 2;
+  [["FILE OWNER", o], ["REVIEWER", r]].forEach(([lab, p], k) => {
+    const x = M + k * (colW + 16), yy = y;
+    doc.roundedRect(x, yy, colW, 62, 4, 4);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(93, 102, 115); doc.text(lab, x + 10, yy + 16);
+    doc.setFontSize(11); doc.setTextColor(27, 31, 36); doc.text(`${p.first} ${p.last} (${p.init})`, x + 10, yy + 34);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text(p.email, x + 10, yy + 50);
+  });
+  y += 84;
+
+  const scoreX = W - M;
+  RUBRIC.forEach(sec => {
+    ensure(40);
+    text(sec.section.toUpperCase(), M, 9, "bold", [31, 111, 235]); y += 8;
+    doc.line(M, y, W - M, y); y += 14;
+    sec.items.forEach(i => {
+      const res = resultText(i);
+      const note = state.notes[i.id].trim();
+      const noteLines = note ? doc.splitTextToSize("Note: " + note, W - 2 * M - 20) : [];
+      ensure(20 + noteLines.length * 12);
+      text(strip(i.title), M, 11, "bold");
+      doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+      doc.setTextColor(...(isGood(i) ? [26, 127, 55] : [192, 54, 44]));
+      doc.text(res, M + 290, y);
+      doc.setTextColor(27, 31, 36); doc.setFont("courier", "bold"); doc.setFontSize(11);
+      doc.text(`${pts(i)} / ${maxOf(i)}`, scoreX, y, { align: "right" });
+      y += 14;
+      if (noteLines.length) { doc.setFont("helvetica", "italic"); doc.setFontSize(9.5); doc.setTextColor(93, 102, 115); doc.text(noteLines, M + 12, y); y += noteLines.length * 12; }
+      y += 6;
+    });
+    y += 6;
+  });
+
+  ensure(40);
+  doc.setDrawColor(27, 31, 36); doc.line(M, y, W - M, y); y += 20;
+  text("Total", M, 13, "bold");
+  doc.setFont("courier", "bold"); doc.setFontSize(13);
+  doc.text(`${total()} / ${MAX}  (${Math.round(total() / MAX * 100)}%)`, scoreX, y, { align: "right" });
+  y += 30;
+
+  ensure(40);
+  text("REVIEWER NOTES", M, 9, "bold", [31, 111, 235]); y += 8;
+  doc.setDrawColor(217, 221, 227); doc.line(M, y, W - M, y); y += 16;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10.5); doc.setTextColor(27, 31, 36);
+  doc.splitTextToSize($("comment").value.trim(), W - 2 * M).forEach(line => { ensure(14); doc.text(line, M, y); y += 14; });
+
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(140, 146, 156);
+    doc.text(`EXP_PR_${o.init}_by_${r.init} · page ${p} of ${pages}`, M, H - 28);
+  }
+  return doc;
+}
+$("submit").onclick = () => {
+  const c = $("comment").value.trim();
+  if (c.split(/\s+/).filter(Boolean).length < 25) { $("err4").textContent = "Write at least 25 words in your notes."; return; }
+  if (!window.jspdf) { $("err4").textContent = "The PDF tool didn't load. Check the internet connection and reload the page."; return; }
+  $("err4").textContent = "";
+  lastPdf = makePdf();
+  lastName = `EXP_PR_${person("o").init}_by_${person("r").init}.pdf`;
+  lastPdf.save(lastName);
+  clearDraft();
+  $("fname").textContent = lastName;
+  show(5);
+};
+$("again").onclick = () => lastPdf && lastPdf.save(lastName);
+$("restart").onclick = () => {
+  ["o_first","o_last","o_email","o_init","comment"].forEach(id => $(id).value = "");
+  ALL.forEach(i => { state.answers[i.id] = i.type === "count" ? 0 : null; state.notes[i.id] = ""; });
+  buildRubric(); lastPdf = null; show(0);
+};
+window.addEventListener("beforeunload", e => { if ((state.step > 1 && state.step < 5) || state.step === 6) { e.preventDefault(); e.returnValue = ""; } });
+
+// ---------- Reflection ----------
+$("goReview").onclick = () => show(1);
+$("goReflect").onclick = () => show(6);
+$("backF").onclick = () => show(0);
+const words = s => s.trim().split(/\s+/).filter(Boolean).length;
+const QS = [
+  ["The notes I received", "q1"],
+  ["My action plan", "q2"],
+  ["Reviewing my partner's scene", "q3"],
+];
+function updateWc() {
+  const n = QS.reduce((t, q) => t + words($(q[1]).value), 0);
+  $("wc").textContent = `${n} / 150–250`;
+}
+QS.forEach(q => $(q[1]).addEventListener("input", updateWc)); updateWc();
+
+let lastF = null, lastFName = "";
+$("submitF").onclick = () => {
+  const f = person("f"), rinit = $("f_rinit").value.trim().toUpperCase();
+  let e = checkPerson("f");
+  if (!e && !/^[A-Z]{3}$/.test(rinit)) e = "Enter your reviewer's three initials.";
+  if (!e && QS.some(q => words($(q[1]).value) < 25)) e = "Write at least 25 words for each question.";
+  const n = QS.reduce((t, q) => t + words($(q[1]).value), 0);
+  if (!e && n < 150) e = `Your reflection is ${n} words. Write at least 150.`;
+  if (!e && !window.jspdf) e = "The PDF tool didn't load. Check the internet connection and reload the page.";
+  $("errF").textContent = e; if (e) return;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 50;
+  let y = M;
+  const ensure = h => { if (y + h > H - M) { doc.addPage(); y = M; } };
+  const line = (s, size, style, color) => { doc.setFont("helvetica", style || "normal"); doc.setFontSize(size); doc.setTextColor(...(color || [27, 31, 36])); doc.text(s, M, y); };
+  line("Intro to Asset Creation (SYST14723)", 10, "normal", [93, 102, 115]); y += 18;
+  line("Week 7 Peer Review – Reflection", 18, "bold"); y += 18;
+  line(new Date().toLocaleString("en-CA", { dateStyle: "long", timeStyle: "short" }), 10, "normal", [93, 102, 115]); y += 22;
+  line(`${f.first} ${f.last} (${f.init})  ·  ${f.email}`, 11, "bold"); y += 15;
+  line(`Reviewed by: ${rinit}  ·  ${n} words`, 10, "normal", [93, 102, 115]); y += 26;
+  QS.forEach(([title, id], k) => {
+    ensure(40);
+    line(`${k + 1}. ${title.toUpperCase()}`, 9, "bold", [31, 111, 235]); y += 8;
+    doc.setDrawColor(217, 221, 227); doc.line(M, y, W - M, y); y += 16;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10.5); doc.setTextColor(27, 31, 36);
+    doc.splitTextToSize($(id).value.trim(), W - 2 * M).forEach(l => { ensure(14); doc.text(l, M, y); y += 14; });
+    y += 14;
+  });
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(140, 146, 156);
+    doc.text(`EXP_PRR_${f.init} · page ${p} of ${pages}`, M, H - 28);
+  }
+  lastF = doc; lastFName = `EXP_PRR_${f.init}.pdf`;
+  doc.save(lastFName);
+  clearDraft();
+  $("fnameF").textContent = lastFName;
+  show(7);
+};
+$("againF").onclick = () => lastF && lastF.save(lastFName);
+$("restartF").onclick = () => {
+  ["f_first","f_last","f_email","f_init","f_rinit","q1","q2","q3"].forEach(id => $(id).value = "");
+  updateWc(); lastF = null; show(0);
+};
+
+// ---------- Autosave (this browser only) ----------
+const DRAFT_KEY = "expPeerReviewDraft";
+const FIELD_IDS = ["o_first","o_last","o_email","o_init","r_first","r_last","r_email","r_init","comment",
+                   "f_first","f_last","f_email","f_init","f_rinit","q1","q2","q3"];
+let restoring = false, saveTimer = null;
+function inProgress() { return (state.step >= 1 && state.step <= 4) || state.step === 6; }
+function saveDraft() {
+  if (restoring || !inProgress()) return;
+  const fields = {}; FIELD_IDS.forEach(id => fields[id] = $(id).value);
+  if (!Object.values(fields).some(v => v.trim())) return;
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ step: state.step, fields, answers: state.answers, notes: state.notes, savedAt: Date.now() }));
+  } catch (e) { /* storage unavailable: the page still works, just without autosave */ }
+}
+function queueSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveDraft, 300); }
+function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+function readDraft() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) { return null; } }
+document.addEventListener("input", queueSave);
+document.addEventListener("click", queueSave);
+
+function restoreDraft(d) {
+  restoring = true;
+  FIELD_IDS.forEach(id => { if (d.fields && id in d.fields) $(id).value = d.fields[id]; });
+  ALL.forEach(i => {
+    if (d.answers && i.id in d.answers) state.answers[i.id] = d.answers[i.id];
+    if (d.notes && i.id in d.notes) state.notes[i.id] = d.notes[i.id];
+  });
+  buildRubric();
+  ALL.forEach(i => {
+    const el = $("item_" + i.id), a = state.answers[i.id];
+    if (i.type === "yn" && a !== null) el.querySelectorAll(".yn button").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.v === "yes") === a)));
+    if (i.type === "level" && a !== null) el.querySelectorAll(".levels button").forEach(b => b.setAttribute("aria-pressed", String(Number(b.dataset.k) === a)));
+    if (i.type === "count") $("n_" + i.id).textContent = a;
+    $("note_" + i.id).value = state.notes[i.id];
+  });
+  refreshScores(); updateWc();
+  if (d.step === 4) buildSummary();
+  restoring = false;
+  show(d.step);
+}
+
+buildRubric(); show(0);
+(function offerResume() {
+  const d = readDraft();
+  if (!d || !d.step) return;
+  const when = new Date(d.savedAt).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" });
+  const f = d.fields || {};
+  const what = d.step === 6
+    ? "an unfinished reflection"
+    : (f.o_first ? `an unfinished review of ${f.o_first} ${f.o_last || ""}`.trim() : "an unfinished review");
+  $("resumeText").textContent = `You have ${what}. Last saved: ${when}`;
+  $("resume").hidden = false;
+  $("resumeBtn").onclick = () => { $("resume").hidden = true; restoreDraft(d); };
+  $("discard").onclick = () => { clearDraft(); $("resume").hidden = true; };
+})();
+</script>
+</body>
+</html>
